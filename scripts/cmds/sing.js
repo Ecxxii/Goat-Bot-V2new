@@ -1,87 +1,98 @@
+ require("fs-extra");
+const ytdl = require("@neoxr/ytdl-core");
+const yts = require("yt-search");
+const axios = require('axios');
+const tinyurl = require('tinyurl');
+
 module.exports = {
- config: {
- name: "sing",
- version: "1.0",
- role: 0,
- author: "kshitiz",
- cooldowns: 5,
- shortdescription: "download music from YouTube",
- longdescription: "",
- category: "music",
- usages: "{pn} music name",
- dependencies: {
- "fs-extra": "",
- "request": "",
- "axios": "",
- "ytdl-core": "",
- "yt-search": ""
- }
- },
+  config: {
+    name: "sing",
+    version: "1.4",
+    author: "hedroxyy",
+    countDown: 5,
+    role: 0,
+    category: "media",
+  },
 
- onStart: async ({ api, event }) => {
- const axios = require("axios");
- const fs = require("fs-extra");
- const ytdl = require("ytdl-core");
- const request = require("request");
- const yts = require("yt-search");
+  onStart: async function ({ api, event, message }) {
+    try {
+      let query = '';
 
- const input = event.body;
- const text = input.substring(12);
- const data = input.split(" ");
+    
+      if (event.type === "message_reply" && ["audio", "video"].includes(event.messageReply.attachments[0].type)) {
+        const attachmentUrl = event.messageReply.attachments[0].url;
 
- if (data.length < 2) {
- return api.sendMessage("Please specify a music name.", event.threadID);
- }
+        
+        const transcription = await extractTextFromAudio(attachmentUrl);
 
- data.shift();
- const musicName = data.join(" ");
+        
+        query = transcription.split('\n')[0];
+      } else {
+        
+        const input = event.body;
+        const data = input.split(" ");
 
- try {
- api.sendMessage(`✔ | Searching music for "${musicName}".\ ekxin parkhanuhos...`, event.threadID);
+        if (data.length < 2) {
+          return message.reply("Please put a song");
+        }
 
- const searchResults = await yts(musicName);
- if (!searchResults.videos.length) {
- return api.sendMessage("kunai music vetiyena.", event.threadID, event.messageID);
- }
+        data.shift();
+        query = data.join(" ");
+      }
 
- const music = searchResults.videos[0];
- const musicUrl = music.url;
+     
+      const originalMessage = await message.reply(`Searching for "${query}"...`);
+      const searchResults = await yts(query);
 
- const stream = ytdl(musicUrl, { filter: "audioonly" });
+      if (!searchResults.videos.length) {
+        return message.reply("Error: Song not found.");
+      }
 
- const fileName = `${event.senderID}.mp3`;
- const filePath = __dirname + `/cache/${fileName}`;
+      const video = searchResults.videos[0];
+      const videoUrl = video.url;
+      const stream = ytdl(videoUrl, { filter: "audioonly" });
+      const fileName = `music.mp3`;
+      const filePath = `${__dirname}/tmp/${fileName}`;
 
- stream.pipe(fs.createWriteStream(filePath));
+      stream.pipe(fs.createWriteStream(filePath));
 
- stream.on('response', () => {
- console.info('[DOWNLOADER]', 'Starting download now!');
- });
+      stream.on('response', () => {
+        console.info('[DOWNLOADER]', 'Starting download now!');
+      });
 
- stream.on('info', (info) => {
- console.info('[DOWNLOADER]', `Downloading music: ${info.videoDetails.title}`);
- });
+      stream.on('info', (info) => {
+        console.info('[DOWNLOADER]', `Downloading ${info.videoDetails.title} by ${info.videoDetails.author.name}`);
+      });
 
- stream.on('end', () => {
- console.info('[DOWNLOADER] Downloaded');
-
- if (fs.statSync(filePath).size > 26214400) {
- fs.unlinkSync(filePath);
- return api.sendMessage('❌ | The file could not be sent because it is larger than 25MB.', event.threadID);
- }
-
- const message = {
- body: `🙆‍♀️ ❀ tapaiko geet\ ❀ Title: ${music.title}\ Duration: ${music.duration.timestamp}`,
- attachment: fs.createReadStream(filePath)
- };
-
- api.sendMessage(message, event.threadID, () => {
- fs.unlinkSync(filePath);
- });
- });
- } catch (error) {
- console.error('[ERROR]', error);
- api.sendMessage('🥱 ❀ An error occurred while processing the command.', event.threadID);
- }
- }
+      stream.on('end', async () => {
+        console.info('[DOWNLOADER] Downloaded');
+        if (fs.statSync(filePath).size > 26214400) {
+          fs.unlinkSync(filePath);
+          return message.reply('[ERR] The file could not be sent because it is larger than 25MB.');
+        }
+        const replyMessage = {
+          body: `💗`,
+          attachment: fs.createReadStream(filePath),
+        };
+        await api.unsendMessage(originalMessage.messageID);
+        await message.reply(replyMessage, event.threadID, () => {
+          fs.unlinkSync(filePath);
+        });
+      });
+    } catch (error) {
+      console.error('[ERROR]', error);
+      message.reply("An error occurred while processing the request.");
+    }
+  },
 };
+
+
+async function extractTextFromAudio(audioUrl) {
+  try {
+    const response = await axios.get(`https://milanbhandari.onrender.com/transcribe?url=${encodeURIComponent(audioUrl)}`);
+    return response.data.transcript || '';
+  } catch (error) {
+    console.error('[ERROR]', error);
+    return '';
+  }
+         }
