@@ -28,7 +28,7 @@
   "GENDER": "MALE",
   "nickNameBot": "🥵Kenzo hero🥵🥵",
   "FACEBOOK": "https://www.facebook.com/profile.php?id=100080964097018",
-  "prefix": "/",
+  "prefix": ".",
   "database": {
     "type": "sqlite",
     "uriMongodb": "",
