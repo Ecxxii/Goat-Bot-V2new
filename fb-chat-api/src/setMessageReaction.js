@@ -97,25 +97,3 @@ module.exports = function (defaultFuncs, api, ctx) {
 		defaultFuncs
 			.postFormData(
 				"https://www.facebook.com/webgraphql/mutation/",
-				ctx.jar,
-				{},
-				qs
-			)
-			.then(utils.parseAndCheckLogin(ctx.jar, defaultFuncs))
-			.then(function (resData) {
-				if (!resData) {
-					throw { error: "setReaction returned empty object." };
-				}
-				if (resData.error || resData.errors) {
-					throw resData;
-				}
-				callback(null);
-			})
-			.catch(function (err) {
-				log.error("setReaction", err);
-				return callback(err);
-			});
-
-		return returnPromise;
-	};
-};
